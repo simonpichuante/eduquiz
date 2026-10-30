@@ -1,0 +1,151 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  TEACHER
+  STUDENT
+}
+
+model Institution {
+  id        String    @id @default(uuid())
+  name      String
+  shortName String?
+  rut       String?
+  address   String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  users     User[]
+  subjects  Subject[]  @relation("InstitutionSubjects")
+  courses   Course[]   @relation("InstitutionCourses")
+  questions Question[] @relation("InstitutionQuestions")
+  games     Game[]     @relation("InstitutionGames")
+}
+
+model User {
+  id            String          @id @default(uuid())
+  firstName     String
+  lastName      String
+  email         String          @unique
+  password      String
+  role          Role            @default(STUDENT)
+  institutionId String?
+  institution   Institution?    @relation(fields: [institutionId], references: [id])
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  createdGames   Game[]          @relation("GameCreator")
+  gameParticipants GameParticipant[] @relation("ParticipantUser")
+}
+
+model Subject {
+  id            String    @id @default(uuid())
+  name          String
+  slug          String    @unique
+  institutionId String?
+  institution   Institution? @relation("InstitutionSubjects", fields: [institutionId], references: [id])
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  courses       Course[]
+  questions     Question[]
+  games         Game[]
+}
+
+model Course {
+  id            String    @id @default(uuid())
+  name          String
+  level         String    @default("Básico")
+  subjectId     String
+  subject       Subject   @relation(fields: [subjectId], references: [id])
+  institutionId String?
+  institution   Institution? @relation("InstitutionCourses", fields: [institutionId], references: [id])
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  questions     Question[]
+  games         Game[]
+}
+
+model Question {
+  id            String    @id @default(uuid())
+  prompt        String
+  difficulty    Int       @default(1)
+  explanation   String?
+  subjectId     String
+  subject       Subject   @relation(fields: [subjectId], references: [id])
+  courseId      String?
+  course        Course?   @relation(fields: [courseId], references: [id])
+  institutionId String?
+  institution   Institution? @relation("InstitutionQuestions", fields: [institutionId], references: [id])
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  answers       AnswerOption[]
+  responses     GameResponse[]
+}
+
+model AnswerOption {
+  id            String    @id @default(uuid())
+  text          String
+  isCorrect     Boolean   @default(false)
+  order         Int       @default(0)
+  questionId    String
+  question      Question  @relation(fields: [questionId], references: [id])
+
+  selectedResponses GameResponse[] @relation("SelectedAnswer")
+}
+
+model Game {
+  id              String        @id @default(uuid())
+  title           String
+  mode            String        @default("INDIVIDUAL")
+  status          String        @default("DRAFT")
+  durationSeconds Int           @default(120)
+  institutionId   String?
+  institution     Institution?  @relation("InstitutionGames", fields: [institutionId], references: [id])
+  subjectId       String?
+  subject         Subject?      @relation(fields: [subjectId], references: [id])
+  courseId        String?
+  course          Course?       @relation(fields: [courseId], references: [id])
+  createdById     String?
+  createdBy       User?         @relation("GameCreator", fields: [createdById], references: [id])
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  participants    GameParticipant[] @relation("GameParticipants")
+}
+
+model GameParticipant {
+  id            String    @id @default(uuid())
+  gameId        String
+  game          Game      @relation("GameParticipants", fields: [gameId], references: [id])
+  userId        String
+  user          User      @relation("ParticipantUser", fields: [userId], references: [id])
+  score         Int       @default(0)
+  correctAnswers Int      @default(0)
+  totalAnswers  Int       @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  responses     GameResponse[]
+}
+
+model GameResponse {
+  id              String          @id @default(uuid())
+  participantId   String
+  participant     GameParticipant @relation(fields: [participantId], references: [id])
+  questionId      String
+  question        Question        @relation(fields: [questionId], references: [id])
+  selectedAnswerId String?
+  selectedAnswer  AnswerOption?   @relation("SelectedAnswer", fields: [selectedAnswerId], references: [id])
+  isCorrect       Boolean         @default(false)
+  createdAt       DateTime        @default(now())
+}
